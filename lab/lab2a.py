@@ -1,6 +1,6 @@
 import os
 from tkinter import *
-from tkinter.filedialog import askdirectory
+from tkinter.filedialog import askdirectory, asksaveasfile
 
 import numpy as np
 from matplotlib.pyplot import imread
@@ -33,17 +33,12 @@ class Similarity:
         btn_frame.pack()
 
         config["text"] = "Load Train Data"
-
-        def load_train_dir_callback():
-            self.train_dir = askdirectory()
-            self.read_train_data()
-
-        btn_load_train = Button(btn_frame, **config, command=load_train_dir_callback)
+        btn_load_train = Button(btn_frame, **config, command=self.read_train_data)
         # btn_load_train.bind("<ButtonPress>", lambda event: print("asdfb"))
         btn_load_train.pack(side=LEFT)
 
         config["text"] = "Extract & Save Features"
-        btn_extract_features = Button(btn_frame, **config)
+        btn_extract_features = Button(btn_frame, **config, command=self.extract_features)
         btn_extract_features.pack(side=LEFT)
 
         config["text"] = "Load Features"
@@ -65,8 +60,12 @@ class Similarity:
         self.root.mainloop()
 
     def read_train_data(self):
+        self.train_dir = askdirectory()
         self.status_text.set('Reading from directory "' + self.train_dir + '"')
         self.root.update_idletasks()
+        if self.train_dir == '':
+            self.status_text.set("No directory selected")
+            return
 
         file_names = os.listdir(self.train_dir)
         n = len(file_names)
@@ -77,6 +76,11 @@ class Similarity:
         self.train_data = np.reshape(gray_images, (n, -1))
 
         self.status_text.set('Successfully read from directory "' + self.train_dir + '"')
+
+    def extract_features(self):
+        handle = asksaveasfile(defaultextension=".csv", filetypes=(("CSV File", "*.csv"), ("All Files", "*.*")))
+        handle.write("a,b,c\n1,2,4")
+        handle.close()
 
 
 def main():
