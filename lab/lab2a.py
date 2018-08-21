@@ -1,9 +1,11 @@
 import os
+from io import FileIO
 from tkinter import *
 from tkinter.filedialog import askdirectory, asksaveasfile
 
 import numpy as np
 from matplotlib.pyplot import imread
+from pandas import DataFrame
 
 true, false, null = True, False, None
 
@@ -16,7 +18,16 @@ class Similarity:
         self.status_text = StringVar()
 
         self.train_dir = null
-        self.train_data = []
+        self.train_data = null
+
+        self.means = []
+        self.medians = []
+        self.modes = []
+        self.mid_ranges = []
+        self.ranges = []
+        self.iqrs = []
+        self.std_dev = []
+        self.df = null
 
         self.create_gui()
 
@@ -76,11 +87,71 @@ class Similarity:
         self.train_data = np.reshape(gray_images, (n, -1))
 
         self.status_text.set('Successfully read from directory "' + self.train_dir + '"')
+        # Reset df as data is changed
+        self.df = null
 
     def extract_features(self):
-        handle = asksaveasfile(defaultextension=".csv", filetypes=(("CSV File", "*.csv"), ("All Files", "*.*")))
-        handle.write("a,b,c\n1,2,4")
-        handle.close()
+        if self.train_data is null:
+            self.status_text.set("No data is selected for extracting feature.")
+            return
+
+        m, n = self.train_data.shape
+        self.means = np.mean(self.train_data, axis=1)
+        self.medians = np.median(self.train_data, axis=1)
+        self.modes = self._modes(self.train_data)
+        maxes = np.max(self.train_data, axis=1)
+        mins = np.min(self.train_data, axis=1)
+        self.mid_ranges = (maxes + mins) * .5
+        self.ranges = (maxes - mins)
+        sorted_data = np.sort(self.train_data, axis=1)
+        q_size = int(n / 4)
+        q1 = sorted_data[:, q_size]
+        q3 = sorted_data[:, 3 * q_size]
+        self.iqrs = q3 - q1
+        self.std_dev = np.std(self.train_data, axis=1)
+
+        assert self.means.shape == self.medians.shape == self.modes.shape == self.mid_ranges.shape
+        assert self.mid_ranges.shape == self.ranges.shape == self.iqrs.shape == self.std_dev.shape == (m,)
+
+        data = np.array([self.means, self.medians, self.modes,
+                         self.mid_ranges, self.ranges, self.iqrs, self.std_dev])
+        columns = ["Mean", "Median", "Mode", "MidRange", "Range", "IQR", "StdDev"]
+        self.df = DataFrame(data.T, columns=columns)
+
+        self.status_text.set("Features extracted")
+
+        self.save_extracted_features()
+
+    def save_extracted_features(self):
+        self.df: DataFrame
+        if self.df is null:
+            return
+        filetypes = (("CSV File", "*.csv"), ("All Files", "*.*"))
+
+        handle = null
+        try:
+            handle = asksaveasfile(defaultextension=".csv", filetypes=filetypes)
+            if handle is null:
+                self.status_text.set("No file is selected for writing output.")
+                return
+            self.df.to_csv(handle)
+            self.status_text.set('Features are written to "' + handle.name + '"')
+        except PermissionError as err:
+            self.status_text.set('Could not open file "' + err.filename + '"')
+        finally:
+            if handle is not null:
+                handle.close()
+
+    @staticmethod
+    def _modes(train_data):
+        def mode1d(arr):
+            u, c = np.unique(arr, return_counts=true)
+            max_index = np.argmax(c)
+            return u[max_index]
+
+        modes = np.apply_along_axis(mode1d, 1, train_data)
+
+        return modes
 
 
 def main():
