@@ -1,33 +1,86 @@
+import os
 from tkinter import *
+from tkinter.filedialog import askdirectory
 
-root = Tk(className="Similarity")
+import numpy as np
+from matplotlib.pyplot import imread
 
-btn_frame = Frame(root)
-btn_frame.pack()
+true, false, null = True, False, None
 
-config = {
-    "text": "Load Train Data",
-    "padx": 10,
-    "pady": 10,
-}
-btn_load_train = Button(btn_frame, **config)
-btn_load_train.bind("<ButtonPress>", lambda event: print("asdfb"))
-btn_load_train.pack(side=LEFT)
 
-config["text"] = "Extract & Save Features"
-btn_extract_features = Button(btn_frame, **config)
-btn_extract_features.pack(side=LEFT)
+class Similarity:
 
-config["text"] = "Load Features"
-btn_load_features = Button(btn_frame, **config)
-btn_load_features.pack(side=LEFT)
+    def __init__(self):
+        self.root = Tk(className="Similarity")
+        self.root.title("Data Mining")
+        self.status_text = StringVar()
 
-config["text"] = "Select Query Image"
-btn_select_img = Button(btn_frame, **config)
-btn_select_img.pack(side=LEFT)
+        self.train_dir = null
+        self.train_data = []
 
-config["text"] = "Show Similar Images"
-btn_show_img = Button(btn_frame, **config)
-btn_show_img.pack(side=LEFT)
+        self.create_gui()
 
-root.mainloop()
+    def create_gui(self):
+        config = {"padx": 10, "pady": 10, "text": "Output Area"}
+        output_frame = LabelFrame(self.root, **config)
+
+        canvas = Canvas(output_frame)
+        canvas.pack()
+        output_frame.pack()
+
+        config["text"] = "Options"
+        btn_frame = LabelFrame(self.root, **config)
+        btn_frame.pack()
+
+        config["text"] = "Load Train Data"
+
+        def load_train_dir_callback():
+            self.train_dir = askdirectory()
+            self.read_train_data()
+
+        btn_load_train = Button(btn_frame, **config, command=load_train_dir_callback)
+        # btn_load_train.bind("<ButtonPress>", lambda event: print("asdfb"))
+        btn_load_train.pack(side=LEFT)
+
+        config["text"] = "Extract & Save Features"
+        btn_extract_features = Button(btn_frame, **config)
+        btn_extract_features.pack(side=LEFT)
+
+        config["text"] = "Load Features"
+        btn_load_features = Button(btn_frame, **config)
+        btn_load_features.pack(side=LEFT)
+
+        config["text"] = "Select Query Image"
+        btn_select_img = Button(btn_frame, **config)
+        btn_select_img.pack(side=LEFT)
+
+        config["text"] = "Show Similar Images"
+        btn_show_img = Button(btn_frame, **config)
+        btn_show_img.pack(side=LEFT)
+
+        status_label = Label(self.root, pady=5, textvariable=self.status_text)
+        status_label.pack(side=BOTTOM)
+
+    def start(self):
+        self.root.mainloop()
+
+    def read_train_data(self):
+        self.status_text.set('Reading from directory "' + self.train_dir + '"')
+        self.root.update_idletasks()
+
+        file_names = os.listdir(self.train_dir)
+        n = len(file_names)
+        file_names = [self.train_dir + os.sep + file_name for file_name in file_names]
+        images = [imread(file_name) for file_name in file_names]
+        images = np.array(images)
+        gray_images = np.mean(images, axis=3)
+        self.train_data = np.reshape(gray_images, (n, -1))
+
+        self.status_text.set('Successfully read from directory "' + self.train_dir + '"')
+
+
+def main():
+    Similarity().start()
+
+
+main()
