@@ -1,11 +1,10 @@
 import os
-from io import FileIO
 from tkinter import *
-from tkinter.filedialog import askdirectory, asksaveasfile
+from tkinter.filedialog import askdirectory, asksaveasfile, askopenfile
 
 import numpy as np
 from matplotlib.pyplot import imread
-from pandas import DataFrame
+from pandas import DataFrame, read_csv
 
 true, false, null = True, False, None
 
@@ -53,7 +52,7 @@ class Similarity:
         btn_extract_features.pack(side=LEFT)
 
         config["text"] = "Load Features"
-        btn_load_features = Button(btn_frame, **config)
+        btn_load_features = Button(btn_frame, **config, command=self.load_features)
         btn_load_features.pack(side=LEFT)
 
         config["text"] = "Select Query Image"
@@ -121,6 +120,16 @@ class Similarity:
         self.status_text.set("Features extracted")
 
         self.save_extracted_features()
+
+    def load_features(self):
+        filetypes = (("CSV File", "*.csv"), ("All Files", "*.*"))
+        feature_file = askopenfile(filetypes=filetypes)
+        if feature_file == '':
+            self.status_text.set("No file selected.")
+            return
+        self.df = read_csv(feature_file)
+        self.status_text.set('Successfully read features from "{}".'.format(feature_file.name))
+        feature_file.close()
 
     def save_extracted_features(self):
         self.df: DataFrame
