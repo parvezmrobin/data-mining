@@ -1,8 +1,10 @@
 import os
-from tkinter import *
+from tkinter import Tk, StringVar, LabelFrame, Canvas, Button, LEFT, Label, BOTTOM, NE, CENTER, NW
 from tkinter.filedialog import askdirectory, asksaveasfile, askopenfilename
 
 import numpy as np
+from PIL import Image
+from PIL.ImageTk import PhotoImage
 from matplotlib.pyplot import imread
 from pandas import DataFrame, read_csv
 
@@ -40,8 +42,12 @@ class Similarity:
         config = {"padx": 10, "pady": 10, "text": "Output Area"}
         output_frame = LabelFrame(self.root, **config)
 
-        self.canvas = Canvas(output_frame)
+        self.canvas = Canvas(output_frame, width=1200, height=400)
         self.canvas.pack()
+        raw_img = Image.open("D:/Projects/Python/data-mining/Dataset/TrainData/apple1-045-090.png")
+        img_resize = raw_img.resize((160, 160), Image.ANTIALIAS)
+        img = PhotoImage(img_resize)
+        self.canvas.create_image(10, 10, anchor=NW, image=img)
         output_frame.pack()
 
         config["text"] = "Options"
@@ -72,7 +78,6 @@ class Similarity:
         status_label = Label(self.root, pady=5, textvariable=self.status_text)
         status_label.pack(side=BOTTOM)
 
-    def start(self):
         self.root.mainloop()
 
     def read_train_data(self):
@@ -206,7 +211,7 @@ class Similarity:
         self.nearest_images = temp_df.FileName[:pick]
 
         self.canvas: Canvas
-        img = PhotoImage(file=self.nearest_images.iloc[1])
+        img = PhotoImage(Image.open(self.nearest_images.iloc[1]))
         self.canvas.create_image(50, 50, anchor=NE, image=img)
 
     @staticmethod
@@ -222,7 +227,7 @@ class Similarity:
 
 
 def main():
-    Similarity().start()
+    Similarity()
 
 
 main()
