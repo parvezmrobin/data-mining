@@ -1,40 +1,34 @@
 import os
-from tkinter import Tk, StringVar, LabelFrame, Canvas, Button, LEFT, Label, BOTTOM, NE, CENTER, NW
+from tkinter import Tk, StringVar, LabelFrame, Canvas, Button, LEFT, Label, BOTTOM, NW
 from tkinter.filedialog import askdirectory, asksaveasfile, askopenfilename
 
 import numpy as np
 from PIL import Image
 from PIL.ImageTk import PhotoImage
 from matplotlib.pyplot import imread
-from pandas import DataFrame, read_csv
+from pandas import DataFrame, read_csv, Series
 
 true, false, null = True, False, None
 
 
 class Similarity:
+    canvas: Canvas
+    status_text: StringVar
+
+    train_dir: str
+    train_data: np.ndarray
+    file_names: np.ndarray
+
+    df: DataFrame
+
+    query_image_file: str
+    query_image: np.ndarray
+    feature_vector: list
+    nearest_images: Series
 
     def __init__(self):
         self.root = Tk()
         self.root.title("Data Mining")
-        self.status_text = StringVar()
-        self.canvas = null
-
-        self.train_dir = null
-        self.train_data = null
-        self.file_names = null
-
-        self.means = []
-        self.medians = []
-        self.modes = []
-        self.mid_ranges = []
-        self.ranges = []
-        self.iqrs = []
-        self.std_dev = []
-        self.df = null
-
-        self.query_image = null
-        self.feature_vector = null
-        self.nearest_images = null
 
         self.create_gui()
 
@@ -42,12 +36,8 @@ class Similarity:
         config = {"padx": 10, "pady": 10, "text": "Output Area"}
         output_frame = LabelFrame(self.root, **config)
 
-        self.canvas = Canvas(output_frame, width=1200, height=400)
+        self.canvas = Canvas(output_frame, width=1180, height=480)
         self.canvas.pack()
-        raw_img = Image.open("D:/Projects/Python/data-mining/Dataset/TrainData/apple1-045-090.png")
-        img_resize = raw_img.resize((160, 160), Image.ANTIALIAS)
-        img = PhotoImage(img_resize)
-        self.canvas.create_image(10, 10, anchor=NW, image=img)
         output_frame.pack()
 
         config["text"] = "Options"
@@ -75,6 +65,7 @@ class Similarity:
         btn_show_img = Button(btn_frame, **config, command=self.show_similar_images)
         btn_show_img.pack(side=LEFT)
 
+        self.status_text = StringVar()
         status_label = Label(self.root, pady=5, textvariable=self.status_text)
         status_label.pack(side=BOTTOM)
 
@@ -106,25 +97,24 @@ class Similarity:
             return
 
         m, n = self.train_data.shape
-        self.means = np.mean(self.train_data, axis=1)
-        self.medians = np.median(self.train_data, axis=1)
-        self.modes = self._modes(self.train_data)
+        means = np.mean(self.train_data, axis=1)
+        medians = np.median(self.train_data, axis=1)
+        modes = self._modes(self.train_data)
         maxes = np.max(self.train_data, axis=1)
         mins = np.min(self.train_data, axis=1)
-        self.mid_ranges = (maxes + mins) * .5
-        self.ranges = (maxes - mins)
+        mid_ranges = (maxes + mins) * .5
+        ranges = (maxes - mins)
         sorted_data = np.sort(self.train_data, axis=1)
         q_size = int(n / 4)
         q1 = sorted_data[:, q_size]
         q3 = sorted_data[:, 3 * q_size]
-        self.iqrs = q3 - q1
-        self.std_dev = np.std(self.train_data, axis=1)
+        iqrs = q3 - q1
+        std_dev = np.std(self.train_data, axis=1)
 
-        assert self.means.shape == self.medians.shape == self.modes.shape == self.mid_ranges.shape
-        assert self.mid_ranges.shape == self.ranges.shape == self.iqrs.shape == self.std_dev.shape == (m,)
+        assert means.shape == medians.shape == modes.shape == mid_ranges.shape
+        assert mid_ranges.shape == ranges.shape == iqrs.shape == std_dev.shape == (m,)
 
-        data = np.array([self.means, self.medians, self.modes, self.mid_ranges,
-                         self.ranges, self.iqrs, self.std_dev, self.file_names])
+        data = np.array([means, medians, modes, mid_ranges, ranges, iqrs, std_dev, self.file_names])
         columns = ["Mean", "Median", "Mode", "MidRange", "Range", "IQR", "StdDev", "FileName"]
         self.df = DataFrame(data.T, columns=columns)
 
@@ -135,11 +125,11 @@ class Similarity:
     def save_extracted_features(self):
         if self.df is null:
             return
-        filetypes = (("CSV File", "*.csv"), ("All Files", "*.*"))
+        file_types = (("CSV File", "*.csv"), ("All Files", "*.*"))
 
         handle = null
         try:
-            handle = asksaveasfile(defaultextension=".csv", filetypes=filetypes)
+            handle = asksaveasfile(defaultextension=".csv", filetypes=file_types)
             if handle is null:
                 self.status_text.set("No file is selected for writing output.")
                 return
@@ -152,8 +142,8 @@ class Similarity:
                 handle.close()
 
     def load_features(self):
-        filetypes = (("CSV File", "*.csv"), ("All Files", "*.*"))
-        feature_file = askopenfilename(filetypes=filetypes)
+        file_types = (("CSV File", "*.csv"), ("All Files", "*.*"))
+        feature_file = askopenfilename(filetypes=file_types)
         if feature_file == '':
             self.status_text.set("No file selected.")
             return
@@ -161,13 +151,13 @@ class Similarity:
         self.status_text.set('Successfully read features from "{}".'.format(feature_file))
 
     def load_query_image(self):
-        image_file = askopenfilename()
-        if image_file == '':
+        self.query_image_file = askopenfilename()
+        if self.query_image_file == '':
             self.status_text.set("No image selected.")
             return
-        self.query_image = imread(image_file)
+        self.query_image = imread(self.query_image_file)
         self.query_image = np.mean(self.query_image, axis=2).reshape((-1))
-        self.status_text.set('Successfully read query image : "{}"'.format(image_file))
+        self.status_text.set('Successfully read query image : "{}"'.format(self.query_image_file))
 
     def show_similar_images(self):
         if self.df is null:
@@ -197,7 +187,7 @@ class Similarity:
 
         self.find_nearest_images()
 
-    def find_nearest_images(self, pick=3):
+    def find_nearest_images(self, pick=20):
         def distance(df: DataFrame):
             cols = ['Mean', 'Median', 'Mode', 'MidRange', 'Range', 'IQR', 'StdDev']
             df = df[cols]
@@ -209,10 +199,23 @@ class Similarity:
         self.df: DataFrame
         temp_df = self.df.assign(Diff=distance).sort_values('Diff')
         self.nearest_images = temp_df.FileName[:pick]
+        self.nearest_images = Series([self.query_image_file]).append(self.nearest_images)
 
-        self.canvas: Canvas
-        img = PhotoImage(Image.open(self.nearest_images.iloc[1]))
-        self.canvas.create_image(50, 50, anchor=NE, image=img)
+        ROW_COUNT = 3
+        COL_COUNT = 7
+        self.canvas.images = []
+        for i in range(ROW_COUNT):
+            for j in range(COL_COUNT):
+                raw_img = Image.open(self.nearest_images.iloc[i * COL_COUNT + j])
+                resized_img = raw_img.resize((160, 160), Image.ANTIALIAS)
+                img = PhotoImage(resized_img)
+                x = j * 170
+                y = i * 170
+                self.canvas.create_image(x, y, anchor=NW, image=img)
+                self.canvas.update_idletasks()
+
+                # Caching
+                self.canvas.images.append(img)
 
     @staticmethod
     def _mode1d(arr):
