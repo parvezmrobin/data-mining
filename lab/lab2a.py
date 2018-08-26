@@ -1,6 +1,7 @@
 import os
-from tkinter import Tk, StringVar, LabelFrame, Canvas, Button, LEFT, Label, BOTTOM, NW
+from tkinter import Tk, StringVar, LabelFrame, Canvas, Button, LEFT, Label, BOTTOM, NW, HORIZONTAL, BOTH, Frame
 from tkinter.filedialog import askdirectory, asksaveasfile, askopenfilename
+from tkinter.ttk import Progressbar
 
 import numpy as np
 from PIL import Image
@@ -13,6 +14,7 @@ true, false, null = True, False, None
 
 class Similarity:
     canvas: Canvas
+    progress_bar: Progressbar
     status_text: StringVar
 
     train_dir: str
@@ -65,24 +67,41 @@ class Similarity:
         btn_show_img = Button(btn_frame, **config, command=self.show_similar_images)
         btn_show_img.pack(side=LEFT)
 
+        bottom_frame = Frame(self.root, padx=10, pady=10)
+        bottom_frame.pack(side=BOTTOM, fill=BOTH)
+
         self.status_text = StringVar()
-        status_label = Label(self.root, pady=5, textvariable=self.status_text)
-        status_label.pack(side=BOTTOM)
+        status_label = Label(bottom_frame, pady=5, textvariable=self.status_text)
+        status_label.pack()
+
+        self.progress_bar = Progressbar(bottom_frame, orient=HORIZONTAL, mode='determinate',)
+        self.progress_bar.pack(fill=BOTH)
 
         self.root.mainloop()
 
     def read_train_data(self):
         self.train_dir = askdirectory()
-        self.status_text.set('Reading from directory "' + self.train_dir + '"')
-        self.root.update_idletasks()
         if self.train_dir == '':
             self.status_text.set("No directory selected")
             return
 
+        self.status_text.set('Reading from directory "' + self.train_dir + '"')
+        self.root.update_idletasks()
+
         file_names = os.listdir(self.train_dir)
         n = len(file_names)
         self.file_names = [self.train_dir + os.sep + file_name for file_name in file_names]
-        images = [imread(file_name) for file_name in self.file_names]
+
+        images = []
+        self.progress_bar['value'] = 0
+        self.root.update_idletasks()
+        for file_name in self.file_names:
+            images.append(imread(file_name))
+            self.progress_bar.step(100 / n)
+            self.root.update_idletasks()
+
+        self.progress_bar['value'] = 100
+
         images = np.array(images)
         gray_images = np.mean(images, axis=3)
         self.train_data = np.reshape(gray_images, (n, -1))
@@ -97,29 +116,60 @@ class Similarity:
             return
 
         self.status_text.set('Extracting features from training data.')
+        self.progress_bar['value'] = 0
         self.root.update_idletasks()
 
         m, n = self.train_data.shape
+
+        # Mean
         means = np.mean(self.train_data, axis=1)
+        self.progress_bar['value'] += (100/8)
+        self.root.update_idletasks()
+
+        # Median
         medians = np.median(self.train_data, axis=1)
+        self.progress_bar['value'] += (100 / 8)
+        self.root.update_idletasks()
+
+        # Mode
         modes = self._modes(self.train_data)
+        self.progress_bar['value'] += (100 / 8)
+        self.root.update_idletasks()
+
+        # Mid Range
         maxes = np.max(self.train_data, axis=1)
         mins = np.min(self.train_data, axis=1)
         mid_ranges = (maxes + mins) * .5
+        self.progress_bar['value'] += (100 / 8)
+        self.root.update_idletasks()
+
+        # Range
         ranges = (maxes - mins)
+        self.progress_bar['value'] += (100 / 8)
+        self.root.update_idletasks()
+
+        # IQR
         sorted_data = np.sort(self.train_data, axis=1)
         q_size = int(n / 4)
         q1 = sorted_data[:, q_size]
         q3 = sorted_data[:, 3 * q_size]
         iqrs = q3 - q1
+        self.progress_bar['value'] += (100 / 8)
+        self.root.update_idletasks()
+
+        # Standard Deviation
         std_dev = np.std(self.train_data, axis=1)
+        self.progress_bar['value'] += (100 / 8)
+        self.root.update_idletasks()
 
         assert means.shape == medians.shape == modes.shape == mid_ranges.shape
         assert mid_ranges.shape == ranges.shape == iqrs.shape == std_dev.shape == (m,)
 
+        # Make DataFrame
         data = np.array([means, medians, modes, mid_ranges, ranges, iqrs, std_dev, self.file_names])
         columns = ["Mean", "Median", "Mode", "MidRange", "Range", "IQR", "StdDev", "FileName"]
         self.df = DataFrame(data.T, columns=columns)
+        self.progress_bar['value'] = 100
 
         self.status_text.set("Features extracted from training data.")
         self.root.update_idletasks()
