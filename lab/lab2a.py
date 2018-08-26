@@ -96,6 +96,9 @@ class Similarity:
             self.status_text.set("No data is selected for extracting feature.")
             return
 
+        self.status_text.set('Extracting features from training data.')
+        self.root.update_idletasks()
+
         m, n = self.train_data.shape
         means = np.mean(self.train_data, axis=1)
         medians = np.median(self.train_data, axis=1)
@@ -118,7 +121,8 @@ class Similarity:
         columns = ["Mean", "Median", "Mode", "MidRange", "Range", "IQR", "StdDev", "FileName"]
         self.df = DataFrame(data.T, columns=columns)
 
-        self.status_text.set("Features extracted")
+        self.status_text.set("Features extracted from training data.")
+        self.root.update_idletasks()
 
         self.save_extracted_features()
 
@@ -192,7 +196,7 @@ class Similarity:
             cols = ['Mean', 'Median', 'Mode', 'MidRange', 'Range', 'IQR', 'StdDev']
             df = df[cols]
             for i, col in enumerate(cols):
-                df[col] = (df[col] - self.feature_vector[i]) ** 2
+                df[col] = np.abs(df[col] - self.feature_vector[i])
             diff_col = df.sum(axis=1)
             return diff_col
 
